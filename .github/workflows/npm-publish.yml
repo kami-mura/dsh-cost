@@ -19,6 +19,22 @@ jobs:
           node-version: 22
           registry-url: 'https://registry.npmjs.org'
       - run: npm test
-      - run: npm publish --access public
+      - name: Check if version already published
+        id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="$(node -p "require('./package.json').version")"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          if npm view "dsh-cost-log@${VERSION}" version --silent >/dev/null 2>&1; then
+            echo "Version ${VERSION} already exists on npm, skipping publish"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish to npm
+        if: steps.check.outputs.exists == 'false'
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
