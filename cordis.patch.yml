@@ -1,0 +1,7 @@
+# dsh-cost-log bundle patch: mounts the host cost-projection half and the
+# browser cost badge half. Install with:
+#   dsh plugin --profile <name> add dsh-cost-log
+- insert:
+    - id: cost-log
+      name: dsh-cost-log
+      inject: [sessionProjections]
