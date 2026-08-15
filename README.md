@@ -9,6 +9,7 @@ DSH native plugin: real-time current conversation cost based on DeepSeek pricing
 - Always-visible cost badge next to the input box; updates as token usage changes. Currency is configurable in DSH Settings > Plugins > **Plugin configuration** (CNY / USD, default CNY).
 - Tooltip language follows the DSH system language (Chinese / English).
 - Clicking the cost icon shows only: input tokens, output tokens, flash cost, pro cost.
+- All displayed costs are rounded to 2 decimal places; amounts below 0.01 are shown as `<0.01`.
 - CNY pricing since 2026-08-17:
   - `deepseek-v4-flash`: off-peak 0.05 / 1.5 / 4.5, peak 0.10 / 3.0 / 9.0 (CNY per million tokens)
   - `deepseek-v4-pro`: off-peak 0.15 / 4.5 / 13.5, peak 0.30 / 9.0 / 27.0 (CNY per million tokens)
@@ -97,6 +98,14 @@ dsh plugin --profile web remove dsh-cost-log
 
 > Requires DSH runtime capabilities: Host `sessionProjections` and optional `settings` services; Client `slots`, `locale`, optional `settingsScope`, the `react` platform module, and the `conversation.input.right` slot provided by `ui-conversation`.
 
+## Quick start
+
+1. Install the plugin and restart DSH Web.
+2. Open any conversation.
+3. The cost badge appears on the right side of the input box; hover to see token usage, click to view the flash / pro cost breakdown.
+
+To switch currency, open DSH Settings > Plugins > **Plugin configuration** and choose CNY or USD.
+
 ## Files
 
 | File | Description |
@@ -112,6 +121,10 @@ Run tests:
 ```bash
 node --test tests/*.test.mjs
 ```
+
+## Contributing
+
+Issues and pull requests are welcome. When changing user-facing behavior, please keep the English and Chinese README files in sync.
 
 ## License
 

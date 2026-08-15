@@ -9,6 +9,7 @@ DSH 原生插件：按 DeepSeek 价格表实时计算**当前对话花费**，�
 - 输入框旁常驻金额徽标，token 用量变化时自动更新；货币可在 DSH 设置 > 插件 > **Plugin configuration** 中选择（CNY / USD，默认 CNY）。
 - 悬浮提示语言跟随 DSH 系统语言（中文 / English）。
 - 点击费用图标后只显示：输入 tokens、输出 tokens、flash 花费、pro 花费。
+- 所有展示费用四舍五入保留两位小数；不足 0.01 时显示为 `<0.01`。
 - 2026-08-17 起人民币新价格表：
   - `deepseek-v4-flash`：空闲 0.05 / 1.5 / 4.5，高峰 0.10 / 3.0 / 9.0（元/百万 tokens）
   - `deepseek-v4-pro`：空闲 0.15 / 4.5 / 13.5，高峰 0.30 / 9.0 / 27.0（元/百万 tokens）
@@ -97,6 +98,14 @@ dsh plugin --profile web remove dsh-cost-log
 
 > 依赖 DSH 运行时能力：Host `sessionProjections` 与可选 `settings` 服务；Client `slots`、`locale`、可选 `settingsScope`、`react` 平台模块与 `ui-conversation` 的 `conversation.input.right` 插槽（DSH 内置）。
 
+## 快速开始
+
+1. 安装插件并重启 DSH Web。
+2. 打开任意会话。
+3. 输入框右侧会出现费用徽标；悬停可查看 token 用量，点击可查看 flash / pro 花费明细。
+
+切换货币：打开 DSH 设置 > 插件 > **Plugin configuration**，选择 CNY 或 USD。
+
 ## 文件
 
 | 文件 | 说明 |
@@ -112,6 +121,10 @@ dsh plugin --profile web remove dsh-cost-log
 ```bash
 node --test tests/*.test.mjs
 ```
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request。修改用户可见功能时，请同步更新英文与中文 README。
 
 ## License
 
