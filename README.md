@@ -10,7 +10,7 @@ DSH 原生插件：按 DeepSeek 价格表实时计算**当前对话花费**，�
 
 ## 为什么选择 dsh-cost-log？
 
-**它不只是把 token 乘以一个固定单价，而是面向 DeepSeek 官方模型与 DSH 会话机制设计的成本投影。**
+**它不只是把 token 乘以一个固定单价，而是面向 DeepSeek 官方模型与 DSH 会话机制设计的成本投影。1.0.0 是稳定版，今后只维护 DeepSeek 价格变化与 DSH 兼容性。**
 
 | 优势 | 具体表现 |
 | --- | --- |
@@ -22,9 +22,9 @@ DSH 原生插件：按 DeepSeek 价格表实时计算**当前对话花费**，�
 
 ## 功能
 
-- 输入框旁常驻金额徽标，token 用量变化时自动更新；货币可在 DSH 设置 > 插件 > **Plugin configuration** 中选择（CNY / USD，默认 CNY）。
+- 输入框旁常驻金额徽标，token 用量变化时自动更新；货币可在 DSH 设置 > 插件 > **Plugin configuration** 中选择（CNY / USD，默认 CNY），选择保存在当前浏览器。
 - 悬浮提示语言跟随 DSH 系统语言（中文 / English）。
-- 点击费用图标后只显示：输入 tokens、输出 tokens、flash 花费、pro 花费。
+- 悬停费用图标后只显示：输入 tokens、输出 tokens、flash 花费、pro 花费。
 - 所有展示费用四舍五入保留两位小数；不足 0.01 时显示为 `<0.01`。
 - 2026-08-17 起人民币新价格表：
   - `deepseek-v4-flash`：空闲 0.05 / 1.5 / 4.5，高峰 0.10 / 3.0 / 9.0（元/百万 tokens）
@@ -34,8 +34,11 @@ DSH 原生插件：按 DeepSeek 价格表实时计算**当前对话花费**，�
   - `deepseek-v4-pro`：空闲 $0.022 / $0.66 / $1.98，高峰 $0.044 / $1.32 / $3.96（美元/百万 tokens）
 - 高峰时段按北京时间：`9:00-12:00`、`14:00-18:00`；其余为空闲，空闲价为高峰价一半。
 - 生效时刻之前自动使用旧价格表（人民币与美元均为旧表）。
+- 只给 DSH 内置 `deepseek-official` provider 的完整模型 ID `deepseek-v4-flash` 与 `deepseek-v4-pro` 计价；显示名称对应 `DeepSeek-V4-Flash` 与 `DeepSeek-V4-Pro`。
 - 未识别的第三方模型不猜价：徽标显示 `≈`/`¥0+` 或 `≈`/`$0+`。
 - 样式使用 DSH WebUI 设计令牌（`--dsw-alias-*`），明暗主题自动跟随。
+
+价格来源：[DeepSeek 官方人民币价格页](https://api-docs.deepseek.com/zh-cn/quick_start/pricing)与[官方美元价格页](https://api-docs.deepseek.com/quick_start/pricing)，最后核验于 2026-08-15。
 
 ## 计价口径
 
@@ -48,9 +51,9 @@ DSH 原生插件：按 DeepSeek 价格表实时计算**当前对话花费**，�
 
 > 金额是依据 provider 上报 token usage 的**参考估算**，不是 DeepSeek 官方账单。usage chunk 与同一 `turn/step` 的 `assistant/message` 会按 projection 替换规则去重，不会重复计费。
 
-### 旧价格表映射
+### 生效前价格表
 
-旧价格表原文没有模型列名。本插件按并发限制（2500 → flash，500 → pro）以及新版同模型上下文，把两列映射为：
+新价格生效前使用官网当前价格：
 
 ```js
 // lib/index.js
@@ -65,8 +68,6 @@ const LEGACY_RATES_USD = {
 }
 ```
 
-如果你的实际旧表列顺序不同，改 `lib/index.js` 顶部的 `LEGACY_RATES` / `LEGACY_RATES_USD` 即可；客户端无需改动。
-
 ## 架构
 
 ```
@@ -76,14 +77,14 @@ const LEGACY_RATES_USD = {
 │ 输入框工具行右侧费用徽标    │ ◄────────── │ costLog 投影                 │
 │ useProjection('costLog')    │  durable    │  ├ request/header 记当前模型  │
 │ React + 手写 bundle          │             │  ├ assistant/chunk usage     │
-│ locale + settingsScope       │             │  └ assistant/message usage  │
+│ locale + localStorage        │             │  └ assistant/message usage  │
 └────────────────────────────┘             │ 按时间 × 模型 × 峰谷计价      │
                                             │ 同时输出 CNY / USD            │
                                             └──────────────────────────────┘
 ```
 
-- **Host**（[`lib/index.js`](lib/index.js)）：注册 `sessionProjections` 投影键 `costLog`，同时输出人民币与美元成本；并注册 `cost-log` 设置命名空间（货币选择）。
-- **Client**（[`lib/client.js`](lib/client.js)）：手写 CJS bundle（`window.__ModuleLoader__.load`），注册在 `conversation.input.right` 插槽（由 `ui-conversation` 提供，就在输入框卡片内），读取 `useProjection('costLog')`；通过 `locale` 服务显示系统语言，通过 `settingsScope` 读取用户选择的货币，并在 Plugin configuration 提供费用货币卡片。
+- **Host**（[`lib/index.js`](lib/index.js)）：注册 `sessionProjections` 投影键 `costLog`，同时输出人民币与美元成本。
+- **Client**（[`lib/client.js`](lib/client.js)）：手写 CJS bundle（`window.__ModuleLoader__.load`），注册在 `conversation.input.right` 插槽（由 `ui-conversation` 提供，就在输入框卡片内），读取 `useProjection('costLog')`；通过 `locale` 服务显示系统语言，并在 Plugin configuration 提供保存在浏览器本地的费用货币选择。
 - 无外部 HTTP 调用、无 Cookie、无数据库、无本地服务、无构建步骤。
 
 ## 安装
@@ -100,10 +101,10 @@ dsh plugin --profile web add dsh-cost-log
 dsh plugin --profile web add github:kami-mura/dsh-cost
 ```
 
-安装后需**重启 dsh web 服务**：
+安装后，回到正在运行 DSH 的终端按 `Ctrl+C` 停止旧进程，然后重新启动：
 
 ```bash
-dshctl restart
+dsh web
 ```
 
 卸载：
@@ -112,7 +113,7 @@ dshctl restart
 dsh plugin --profile web remove dsh-cost-log
 ```
 
-> 依赖 DSH 运行时能力：Host `sessionProjections` 与可选 `settings` 服务；Client `slots`、`locale`、可选 `settingsScope`、`react` 平台模块与 `ui-conversation` 的 `conversation.input.right` 插槽（DSH 内置）。
+> 依赖 DSH 运行时能力：Host `sessionProjections`；Client `slots`、`locale`、`react` 平台模块与 `ui-conversation` 的 `conversation.input.right` 插槽（DSH 内置）。
 
 ## 快速开始
 
@@ -130,7 +131,8 @@ dsh plugin --profile web remove dsh-cost-log
 | `lib/client.js` | Client bundle（输入框旁花费徽标 + Plugin configuration 货币卡片） |
 | `cordis.patch.yml` | 组合包 patch（安装后加入 profile 层栈） |
 | `package.json` | 包声明（`dsh.bundle.patch` + `dsh.client.platform: "web"`） |
-| `tests/pricing.test.mjs` | 峰谷判断与投影折叠的单元测试 |
+| `tests/pricing.test.mjs` | 价格、模型核验、峰谷边界与投影折叠测试 |
+| `tests/client.test.mjs` | DSH 客户端模块注册回归测试 |
 
 运行测试：
 
@@ -140,7 +142,7 @@ node --test tests/*.test.mjs
 
 ## 贡献
 
-欢迎提交 Issue 和 Pull Request。修改用户可见功能时，请同步更新英文与中文 README。
+1.0.0 起进入稳定维护：不再增加功能，只在 DeepSeek 官方价格变化或 DSH 接口变化时更新。修改用户可见内容时，请同步更新英文与中文 README。
 
 ## License
 

@@ -3,6 +3,8 @@ import test from 'node:test'
 import {
   EFFECTIVE_AT_MS,
   costLogProjection,
+  familyOf,
+  isOfficialDeepSeekModel,
   isPeakAt,
   pricePointAt,
   usdPricePointAt,
@@ -53,6 +55,15 @@ test('生效前使用旧价格表，生效后使用峰谷价格表', () => {
     mode: 'peak', inputHit: 0.3, inputMiss: 9, output: 27,
   })
   assert.equal(pricePointAt('some-other-model', Date.UTC(2026, 7, 17, 2)), null)
+})
+
+test('只核验 DeepSeek 官方 provider 与完整 V4 模型名称', () => {
+  assert.equal(familyOf('DeepSeek-V4-Flash'), 'flash')
+  assert.equal(familyOf('DeepSeek-V4-Pro'), 'pro')
+  assert.equal(familyOf('third-party/v4-flash'), null)
+  assert.equal(familyOf('deepseek-v4-pro-preview'), null)
+  assert.equal(isOfficialDeepSeekModel('deepseek-official', 'DeepSeek-V4-Flash'), true)
+  assert.equal(isOfficialDeepSeekModel('third-party', 'deepseek-v4-flash'), false)
 })
 
 test('会话投影把 usage 折叠为人民币成本', () => {
@@ -133,6 +144,69 @@ test('未识别模型不猜价格并标记 complete=false', () => {
   assert.equal(value.complete, false)
   assert.equal(value.byModel[0].priced, false)
   assert.equal(value.byModel[0].tokens.inputTokens, 1000)
+})
+
+test('第三方 provider 使用同名模型也不套用官方价格', () => {
+  let state = costLogProjection.init()
+  const at = Date.UTC(2026, 7, 17, 4)
+  state = costLogProjection.apply(state, event('assistant/message', 1, at, {
+    turn: 1,
+    step: 1,
+    message: { source: { kind: 'model', provider: 'third-party', model: 'deepseek-v4-pro' } },
+    usage: usage(1_000_000, 1_000_000),
+  }))
+  const value = costLogProjection.view(state)
+  assert.equal(value.cost, 0)
+  assert.equal(value.complete, false)
+  assert.equal(value.byModel[0].provider, 'third-party')
+  assert.equal(value.byModel[0].priced, false)
+})
+
+test('交错步骤的最终 usage 分别替换各自的早期样本', () => {
+  let state = costLogProjection.init()
+  const at = Date.UTC(2026, 7, 17, 4)
+  state = costLogProjection.apply(state, event('request/header', 0, at - 100, {
+    header: { config: { provider: 'deepseek-official', model: 'deepseek-v4-flash' }, reason: 'initial' },
+  }))
+  state = costLogProjection.apply(state, event('assistant/chunk', 1, at, {
+    turn: 1, step: 1, chunk: { type: 'usage', usage: usage(1_000_000, 1_000_000) },
+  }))
+  state = costLogProjection.apply(state, event('assistant/message', 2, at + 1, {
+    turn: 1,
+    step: 2,
+    message: { source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' } },
+    usage: usage(1_000_000, 1_000_000),
+  }))
+  state = costLogProjection.apply(state, event('assistant/message', 3, at + 2, {
+    turn: 1,
+    step: 1,
+    message: { source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' } },
+    usage: usage(2_000_000, 2_000_000),
+  }))
+  const value = costLogProjection.view(state)
+  assert.equal(value.cost, 18)
+  assert.equal(value.tokens.inputTokens, 3_000_000)
+  assert.equal(value.tokens.outputTokens, 3_000_000)
+})
+
+test('跨峰谷边界的请求使用 step/start 时的价格', () => {
+  let state = costLogProjection.init()
+  const started = Date.UTC(2026, 7, 17, 3, 59) // 北京 11:59，高峰
+  const completed = Date.UTC(2026, 7, 17, 4, 1) // 北京 12:01，空闲
+  state = costLogProjection.apply(state, event('request/header', 0, started - 10, {
+    header: { config: { provider: 'deepseek-official', model: 'deepseek-v4-flash' }, reason: 'initial' },
+  }))
+  state = costLogProjection.apply(state, event('step/start', 1, started, { turn: 1, step: 1 }))
+  state = costLogProjection.apply(state, event('assistant/message', 2, completed, {
+    turn: 1,
+    step: 1,
+    message: { source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' } },
+    usage: usage(1_000_000, 1_000_000),
+  }))
+  const value = costLogProjection.view(state)
+  assert.equal(value.cost, 12)
+  assert.equal(value.latest.time, started)
+  assert.equal(value.latest.rate.mode, 'peak')
 })
 
 test('美元价格表使用 DeepSeek 官方 USD 报价', () => {

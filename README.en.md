@@ -10,7 +10,7 @@ DSH native plugin: real-time current conversation cost based on DeepSeek pricing
 
 ## Why dsh-cost-log?
 
-**It is more than tokens multiplied by one static rate: it is a cost projection designed around official DeepSeek models and DSH session semantics.**
+**It is more than tokens multiplied by one static rate: it is a cost projection designed around official DeepSeek models and DSH session semantics. Version 1.0.0 is the stable release; future maintenance is limited to DeepSeek pricing changes and DSH compatibility.**
 
 | Advantage | What it means |
 | --- | --- |
@@ -22,9 +22,9 @@ DSH native plugin: real-time current conversation cost based on DeepSeek pricing
 
 ## Features
 
-- Always-visible cost badge next to the input box; updates as token usage changes. Currency is configurable in DSH Settings > Plugins > **Plugin configuration** (CNY / USD, default CNY).
+- Always-visible cost badge next to the input box; updates as token usage changes. Currency is configurable in DSH Settings > Plugins > **Plugin configuration** (CNY / USD, default CNY) and stored in the current browser.
 - Tooltip language follows the DSH system language (Chinese / English).
-- Clicking the cost icon shows only: input tokens, output tokens, flash cost, pro cost.
+- Hovering over the cost icon shows only: input tokens, output tokens, flash cost, pro cost.
 - All displayed costs are rounded to 2 decimal places; amounts below 0.01 are shown as `<0.01`.
 - CNY pricing since 2026-08-17:
   - `deepseek-v4-flash`: off-peak 0.05 / 1.5 / 4.5, peak 0.10 / 3.0 / 9.0 (CNY per million tokens)
@@ -34,8 +34,11 @@ DSH native plugin: real-time current conversation cost based on DeepSeek pricing
   - `deepseek-v4-pro`: off-peak $0.022 / $0.66 / $1.98, peak $0.044 / $1.32 / $3.96 (USD per million tokens)
 - Peak hours use Beijing time: `9:00-12:00`, `14:00-18:00`; all other hours are off-peak, at half the peak rate.
 - Before the effective time, legacy pricing (both CNY and USD) is used automatically.
+- Pricing is limited to DSH's built-in `deepseek-official` provider with the exact model IDs `deepseek-v4-flash` and `deepseek-v4-pro`, displayed as `DeepSeek-V4-Flash` and `DeepSeek-V4-Pro`.
 - Unrecognized third-party models are never guessed: the badge shows `≈` / `¥0+` (or `≈` / `$0+`).
 - Styles use DSH WebUI design tokens (`--dsw-alias-*`) and follow light / dark themes.
+
+Pricing sources: [official DeepSeek CNY pricing](https://api-docs.deepseek.com/zh-cn/quick_start/pricing) and [official DeepSeek USD pricing](https://api-docs.deepseek.com/quick_start/pricing), last verified 2026-08-15.
 
 ## Pricing basis
 
@@ -48,9 +51,9 @@ DSH native plugin: real-time current conversation cost based on DeepSeek pricing
 
 > The amount is a reference estimate based on provider-reported token usage, not an official DeepSeek bill. Usage chunks and `assistant/message` for the same `turn/step` are de-duplicated by the projection replacement rules.
 
-### Legacy price mapping
+### Pre-effective pricing
 
-The legacy pricing table has no model column. This plugin maps the two columns by concurrency limit (2500 -> flash, 500 -> pro), consistent with the new table:
+Before the new pricing takes effect, the current official rates are used:
 
 ```js
 // lib/index.js
@@ -65,8 +68,6 @@ const LEGACY_RATES_USD = {
 }
 ```
 
-If your legacy column order differs, edit `LEGACY_RATES` / `LEGACY_RATES_USD` at the top of `lib/index.js`; no client changes are required.
-
 ## Architecture
 
 ```
@@ -76,14 +77,14 @@ Browser (Client)                               DSH Host
 │ cost badge beside input     │ ◄────────── │ costLog projection            │
 │ useProjection('costLog')    │  durable    │  ├ request/header model       │
 │ React + hand-written bundle │             │  ├ assistant/chunk usage     │
-│ locale + settingsScope      │             │  └ assistant/message usage   │
+│ locale + localStorage       │             │  └ assistant/message usage   │
 └────────────────────────────┘             │ cost by time x model x tier │
                                             │ outputs both CNY / USD       │
                                             └──────────────────────────────┘
 ```
 
-- **Host** ([`lib/index.js`](lib/index.js)): registers the `sessionProjections` key `costLog` and outputs both CNY and USD cost; also registers the `cost-log` settings namespace for currency selection.
-- **Client** ([`lib/client.js`](lib/client.js)): hand-written CJS bundle (`window.__ModuleLoader__.load`), registered in the `conversation.input.right` slot, reads `useProjection('costLog')`, localizes tooltips via the `locale` service, and reads the selected currency via `settingsScope`.
+- **Host** ([`lib/index.js`](lib/index.js)): registers the `sessionProjections` key `costLog` and outputs both CNY and USD cost.
+- **Client** ([`lib/client.js`](lib/client.js)): hand-written CJS bundle (`window.__ModuleLoader__.load`), registered in the `conversation.input.right` slot, reads `useProjection('costLog')`, localizes tooltips via the `locale` service, and stores the selected currency in browser local storage.
 - No external HTTP calls, no cookies, no database, no local server, no build step.
 
 ## Installation
@@ -100,10 +101,10 @@ From GitHub:
 dsh plugin --profile web add github:kami-mura/dsh-cost
 ```
 
-Then restart the DSH web service:
+Return to the terminal running DSH, press `Ctrl+C` to stop the old process, then start it again:
 
 ```bash
-dshctl restart
+dsh web
 ```
 
 Uninstall:
@@ -112,7 +113,7 @@ Uninstall:
 dsh plugin --profile web remove dsh-cost-log
 ```
 
-> Requires DSH runtime capabilities: Host `sessionProjections` and optional `settings` services; Client `slots`, `locale`, optional `settingsScope`, the `react` platform module, and the `conversation.input.right` slot provided by `ui-conversation`.
+> Requires DSH runtime capabilities: Host `sessionProjections`; Client `slots`, `locale`, the `react` platform module, and the `conversation.input.right` slot provided by `ui-conversation`.
 
 ## Quick start
 
@@ -130,7 +131,8 @@ To switch currency, open DSH Settings > Plugins > **Plugin configuration** and c
 | `lib/client.js` | Client bundle (cost badge + Plugin configuration currency card) |
 | `cordis.patch.yml` | Bundle patch (mounts the Host half in the profile layer stack) |
 | `package.json` | Package manifest (`dsh.bundle.patch` + `dsh.client.platform: "web"`) |
-| `tests/pricing.test.mjs` | Unit tests for peak/off-peak pricing and projection folding |
+| `tests/pricing.test.mjs` | Pricing, model validation, boundary, and projection folding tests |
+| `tests/client.test.mjs` | DSH client module registration regression test |
 
 Run tests:
 
@@ -140,7 +142,7 @@ node --test tests/*.test.mjs
 
 ## Contributing
 
-Issues and pull requests are welcome. When changing user-facing behavior, please keep the English and Chinese README files in sync.
+Version 1.0.0 is in stable maintenance. New features are out of scope; updates are limited to official DeepSeek pricing changes and DSH compatibility. Keep the English and Chinese README files in sync for user-visible changes.
 
 ## License
 
