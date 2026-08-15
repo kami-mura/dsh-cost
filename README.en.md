@@ -8,6 +8,18 @@ DSH native plugin: real-time current conversation cost based on DeepSeek pricing
   <img src="./docs/assets/cost-badge-preview.jpg" alt="dsh-cost-log cost badge beside the message composer" width="972">
 </p>
 
+## Why dsh-cost-log?
+
+**It is more than tokens multiplied by one static rate: it is a cost projection designed around official DeepSeek models and DSH session semantics.**
+
+| Advantage | What it means |
+| --- | --- |
+| Durable conversation totals | Cost is computed in a Host-side durable session projection, not in the browser tab. Paging, context compaction, and history backfill do not change the accumulated value. |
+| DeepSeek-specific pricing | Cache hits, cache misses, cache writes, and output are priced separately, with automatic selection by Flash / Pro, Beijing peak hours, CNY / USD, and legacy / new price tables. |
+| No double counting or guessed rates | Usage for the same `turn/step` is de-duplicated by projection replacement rules. Unknown third-party models are marked as partially priced instead of receiving a potentially wrong fallback rate. |
+| Privacy-first, zero extra deployment | No API key access, account-balance lookup, external request, database, proxy, or additional daemon is required. |
+| Cost stays in the workflow | The badge remains beside the composer so the conversation total is visible before and after sending. Details open on demand and follow the DSH locale and light / dark theme. |
+
 ## Features
 
 - Always-visible cost badge next to the input box; updates as token usage changes. Currency is configurable in DSH Settings > Plugins > **Plugin configuration** (CNY / USD, default CNY).
