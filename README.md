@@ -67,6 +67,12 @@ const LEGACY_RATES = {
 dsh plugin --profile web add dsh-cost-log
 ```
 
+从 GitHub 仓库安装：
+
+```bash
+dsh plugin --profile web add github:kami-mura/dsh-cost
+```
+
 从本地目录安装：
 
 ```bash
