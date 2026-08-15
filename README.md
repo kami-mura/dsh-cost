@@ -8,6 +8,20 @@ DSH 原生插件：按 DeepSeek 价格表实时计算**当前对话花费**，�
   <img src="./docs/assets/cost-badge-preview.jpg" alt="dsh-cost-log 输入框费用徽标演示" width="972">
 </p>
 
+## 安装
+
+```bash
+dsh plugin --profile web add dsh-cost-log
+```
+
+安装后需**重启 dsh web 服务**生效。
+
+## 卸载
+
+```bash
+dsh plugin --profile web remove dsh-cost-log
+```
+
 ## 为什么选择 dsh-cost-log？
 
 **它不只是把 token 乘以一个固定单价，而是面向 DeepSeek 官方模型与 DSH 会话机制设计的成本投影。1.0.0 是稳定版，今后只维护 DeepSeek 价格变化与 DSH 兼容性。**
@@ -87,30 +101,14 @@ const LEGACY_RATES_USD = {
 - **Client**（[`lib/client.js`](lib/client.js)）：手写 CJS bundle（`window.__ModuleLoader__.load`），注册在 `conversation.input.right` 插槽（由 `ui-conversation` 提供，就在输入框卡片内），读取 `useProjection('costLog')`；通过 `locale` 服务显示系统语言，并在 Plugin configuration 提供保存在浏览器本地的费用货币选择。
 - 无外部 HTTP 调用、无 Cookie、无数据库、无本地服务、无构建步骤。
 
-## 安装
+## 安装说明
 
-从 npm 安装：
-
-```bash
-dsh plugin --profile web add dsh-cost-log
-```
+该包是标准的 dsh bundle（`dsh.bundle.patch`），`dsh plugin add` 会自动把它加入 profile 的层栈（`dsh.profile.bundles`），无需手改任何配置文件。
 
 从 GitHub 安装：
 
 ```bash
 dsh plugin --profile web add github:kami-mura/dsh-cost
-```
-
-安装后，回到正在运行 DSH 的终端按 `Ctrl+C` 停止旧进程，然后重新启动：
-
-```bash
-dsh web
-```
-
-卸载：
-
-```bash
-dsh plugin --profile web remove dsh-cost-log
 ```
 
 > 依赖 DSH 运行时能力：Host `sessionProjections`；Client `slots`、`locale`、`react` 平台模块与 `ui-conversation` 的 `conversation.input.right` 插槽（DSH 内置）。
