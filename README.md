@@ -4,6 +4,10 @@
 
 DSH 原生插件：按 DeepSeek 价格表实时计算**当前对话花费**，并把金额徽标放在**输入框旁边**（输入框卡片工具行右侧、模型选择器左侧）。金额由 Host 端的 durable 会话投影 `costLog` 计算，跟着会话日志走——翻页、上下文压缩、历史补拉都不会改变累计值；浏览器端只读投影并渲染，不发任何外部请求。
 
+<p align="center">
+  <img src="./docs/assets/cost-badge-preview.jpg" alt="dsh-cost-log 输入框费用徽标演示" width="972">
+</p>
+
 ## 功能
 
 - 输入框旁常驻金额徽标，token 用量变化时自动更新；货币可在 DSH 设置 > 插件 > **Plugin configuration** 中选择（CNY / USD，默认 CNY）。
