@@ -1,6 +1,6 @@
 {
   "name": "dsh-cost-log",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "DSH 原生插件：按 DeepSeek 峰谷价格表实时计算当前对话花费，并显示在输入框旁",
   "type": "module",
   "main": "lib/index.js",
@@ -26,7 +26,7 @@
     "README.md",
     "LICENSE",
     "tests",
-    "README.zh-CN.md"
+    "README.en.md"
   ],
   "keywords": [
     "dsh",
