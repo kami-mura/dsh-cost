@@ -1,5 +1,7 @@
 # dsh-cost-log
 
+**English** · [**中文**](#zh)
+
 DSH native plugin: real-time current conversation cost based on DeepSeek pricing, displayed as a badge beside the input box (right side of the composer tool row, to the left of the model selector). Cost is computed by a durable Host session projection `costLog`, so paging, compaction, or history backfill never change the accumulated value. The browser only reads and renders the projection — no external requests.
 
 ## Features
@@ -116,6 +118,8 @@ node --test tests/*.test.mjs
 [MIT](LICENSE)
 
 ---
+
+<a id="zh"></a>
 
 # dsh-cost-log（中文）
 
