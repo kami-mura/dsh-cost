@@ -5,6 +5,7 @@ import {
   costLogProjection,
   isPeakAt,
   pricePointAt,
+  usdPricePointAt,
 } from '../lib/index.js'
 
 const HOUR = 3_600_000
@@ -132,4 +133,47 @@ test('未识别模型不猜价格并标记 complete=false', () => {
   assert.equal(value.complete, false)
   assert.equal(value.byModel[0].priced, false)
   assert.equal(value.byModel[0].tokens.inputTokens, 1000)
+})
+
+test('美元价格表使用 DeepSeek 官方 USD 报价', () => {
+  assert.deepEqual(usdPricePointAt('deepseek-v4-flash', EFFECTIVE_AT_MS - 1), {
+    mode: 'legacy', inputHit: 0.0028, inputMiss: 0.14, output: 0.28,
+  })
+  assert.deepEqual(usdPricePointAt('deepseek-v4-pro', EFFECTIVE_AT_MS - 1), {
+    mode: 'legacy', inputHit: 0.003625, inputMiss: 0.435, output: 0.87,
+  })
+  assert.deepEqual(usdPricePointAt('deepseek-v4-flash', Date.UTC(2026, 7, 17, 2)), {
+    mode: 'peak', inputHit: 0.014, inputMiss: 0.44, output: 1.32,
+  })
+  assert.deepEqual(usdPricePointAt('deepseek-v4-flash', Date.UTC(2026, 7, 17, 4)), {
+    mode: 'offpeak', inputHit: 0.007, inputMiss: 0.22, output: 0.66,
+  })
+  assert.deepEqual(usdPricePointAt('deepseek-v4-pro', Date.UTC(2026, 7, 17, 2)), {
+    mode: 'peak', inputHit: 0.044, inputMiss: 1.32, output: 3.96,
+  })
+  assert.equal(usdPricePointAt('some-other-model', Date.UTC(2026, 7, 17, 2)), null)
+  assert.deepEqual(pricePointAt('deepseek-v4-flash', Date.UTC(2026, 7, 17, 2), 'USD'), {
+    mode: 'peak', inputHit: 0.014, inputMiss: 0.44, output: 1.32,
+  })
+})
+
+test('会话投影同时输出人民币与美元成本', () => {
+  let state = costLogProjection.init()
+  const at = Date.UTC(2026, 7, 17, 4) // 北京 12:00，空闲
+  state = costLogProjection.apply(state, event('request/header', 0, at - 10, {
+    header: { config: { provider: 'deepseek-official', model: 'deepseek-v4-flash' }, reason: 'initial' },
+  }))
+  state = costLogProjection.apply(state, event('assistant/message', 1, at, {
+    turn: 1,
+    step: 1,
+    message: { source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' } },
+    usage: usage(1_000_000, 1_000_000, 0, 0),
+  }))
+  const value = costLogProjection.view(state)
+  assert.equal(value.cost, 6) // 1.5 + 4.5 元
+  assert.equal(value.costUsd, 0.88) // 0.22 + 0.66 美元
+  assert.equal(value.currency, 'CNY')
+  assert.equal(value.latest.rate.mode, 'offpeak')
+  assert.equal(value.latest.rateUsd.mode, 'offpeak')
+  assert.equal(value.byModel[0].costUsd, 0.88)
 })
